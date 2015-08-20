@@ -13,6 +13,8 @@
 
 @class PFRESTCommand;
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PFCommandURLRequestConstructor : NSObject
 
 @property (nonatomic, weak, readonly) id<PFInstallationIdentifierStoreProvider> dataSource;
@@ -23,6 +25,7 @@
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDataSource:(id<PFInstallationIdentifierStoreProvider>)dataSource NS_DESIGNATED_INITIALIZER;
+
 + (instancetype)constructorWithDataSource:(id<PFInstallationIdentifierStoreProvider>)dataSource;
 
 ///--------------------------------------
@@ -36,7 +39,7 @@
 ///--------------------------------------
 
 - (NSURLRequest *)fileUploadURLRequestForCommand:(PFRESTCommand *)command
-                                 withContentType:(NSString *)contentType
+                                 withContentType:(nullable NSString *)contentType
                            contentSourceFilePath:(NSString *)contentFilePath;
 
 ///--------------------------------------
@@ -45,6 +48,8 @@
 
 + (NSDictionary *)defaultURLRequestHeadersForApplicationId:(NSString *)applicationId
                                                  clientKey:(NSString *)clientKey
-                                                    bundle:(NSBundle *)bundle;
+                                                    bundle:(nullable NSBundle *)bundle;
 
 @end
+
+NS_ASSUME_NONNULL_END

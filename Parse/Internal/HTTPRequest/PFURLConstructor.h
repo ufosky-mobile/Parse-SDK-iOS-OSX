@@ -22,17 +22,21 @@ typedef NS_ENUM(uint8_t, PFURLComponentType)
     PFURLComponentTypeQuery
 };
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PFURLConstructor : NSObject
 
 + (NSURL *)URLFromBaseURL:(NSURL *)baseURL
-                     path:(NSString *)path;
+                     path:(nullable NSString *)path;
 + (NSURL *)URLFromBaseURL:(NSURL *)baseURL
-          queryParameters:(NSDictionary *)queryParameters;
+          queryParameters:(nullable NSDictionary *)queryParameters;
 + (NSURL *)URLFromBaseURL:(NSURL *)baseURL
-                     path:(NSString *)path
-          queryParameters:(NSDictionary *)queryParameters;
+                     path:(nullable NSString *)path
+          queryParameters:(nullable NSDictionary *)queryParameters;
 
 + (NSString *)stringByAddingPercentEscapesToString:(NSString *)string
                                forURLComponentType:(PFURLComponentType)type;
 
 @end
+
+NS_ASSUME_NONNULL_END

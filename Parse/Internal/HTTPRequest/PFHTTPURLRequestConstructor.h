@@ -9,11 +9,15 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PFHTTPURLRequestConstructor : NSObject
 
 + (NSMutableURLRequest *)urlRequestWithURL:(NSURL *)url
                                 httpMethod:(NSString *)httpMethod
-                               httpHeaders:(NSDictionary *)httpHeaders
-                                parameters:(NSDictionary *)parameters;
+                               httpHeaders:(nullable NSDictionary *)httpHeaders
+                                parameters:(nullable NSDictionary *)parameters;
 
 @end
+
+NS_ASSUME_NONNULL_END

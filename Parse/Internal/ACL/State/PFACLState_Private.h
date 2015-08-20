@@ -9,6 +9,8 @@
 
 #import "PFACLState.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PFACLState () {
 @protected
     NSDictionary *_permissions;
@@ -19,3 +21,5 @@
 @property (nonatomic, assign, readwrite, getter=isShared) BOOL shared;
 
 @end
+
+NS_ASSUME_NONNULL_END

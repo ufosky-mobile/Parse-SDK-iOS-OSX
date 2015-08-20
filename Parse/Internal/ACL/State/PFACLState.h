@@ -15,7 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void (^PFACLStateMutationBlock)(PFMutableACLState *);
 
-@interface PFACLState : PFBaseState<PFBaseStateSubclass, NSCopying, NSMutableCopying>
+@interface PFACLState : PFBaseState <PFBaseStateSubclass, NSCopying, NSMutableCopying>
 
 @property (nonatomic, copy, readonly) NSDictionary *permissions;
 @property (nonatomic, assign, readonly, getter=isShared) BOOL shared;

@@ -9,9 +9,13 @@
 
 #import "PFACLState.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface PFMutableACLState : PFACLState
 
 @property (nonatomic, copy, readwrite) NSMutableDictionary *permissions;
 @property (nonatomic, assign, readwrite, getter=isShared) BOOL shared;
 
 @end
+
+NS_ASSUME_NONNULL_END

@@ -9,6 +9,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 ///--------------------------------------
 /// @name Running
 ///--------------------------------------
@@ -57,3 +59,5 @@ extern NSString *const PFCommandRunnerNotificationURLRequestUserInfoKey;
  @abstract The key of response(NSHTTPURLResponse) in the userInfo dictionary of a notification.
  */
 extern NSString *const PFCommandRunnerNotificationURLResponseUserInfoKey;
+
+NS_ASSUME_NONNULL_END

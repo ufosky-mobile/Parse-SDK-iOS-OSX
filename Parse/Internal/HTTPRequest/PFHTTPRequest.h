@@ -12,6 +12,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 static NSString *const PFHTTPRequestMethodGET = @"GET";
 static NSString *const PFHTTPRequestMethodHEAD = @"HEAD";
 static NSString *const PFHTTPRequestMethodDELETE = @"DELETE";
@@ -20,5 +22,7 @@ static NSString *const PFHTTPRequestMethodPUT = @"PUT";
 
 static NSString *const PFHTTPRequestHeaderNameContentType = @"Content-Type";
 static NSString *const PFHTTPRequestHeaderNameContentLength = @"Content-Length";
+
+NS_ASSUME_NONNULL_END
 
 #endif
