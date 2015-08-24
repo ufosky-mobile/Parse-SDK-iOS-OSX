@@ -79,25 +79,6 @@ static void PFObjectAssertValueIsKindOfValidClass(id object) {
     PFParameterAssert(NO, @"PFObject values may not have class: %@", [object class]);
 }
 
-/*!
- Checks if a class is a of container kind to be used as a value for PFObject.
- */
-static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
-    static NSArray *classes;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        classes = @[ [NSDictionary class], [NSArray class], [PFACL class], [PFGeoPoint class] ];
-    });
-
-    for (Class class in classes) {
-        if ([object isKindOfClass:class]) {
-            return YES;
-        }
-    }
-
-    return NO;
-}
-
 @interface PFObject () <PFObjectPrivateSubclass> {
     // A lock for accessing any of the internal state of this object.
     // Guards basically all of the variables below.
@@ -110,9 +91,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 
     // TODO (grantland): Derive this off the EventuallyPins as opposed to +/- count.
     int _deletingEventually;
-
-    // A dictionary that maps id (objects) => PFJSONCache
-    NSMutableDictionary *hashedObjectsCache;
 
     NSString *localId;
 
@@ -653,7 +631,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 
 - (BOOL)isDirty:(BOOL)considerChildren {
     @synchronized (lock) {
-        [self checkForChangesToMutableContainers];
         if (self._state.deleted || dirty || [self _hasChanges]) {
             return YES;
         }
@@ -677,62 +654,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 - (void)_setDirty:(BOOL)aDirty {
     @synchronized (lock) {
         dirty = aDirty;
-    }
-}
-
-///--------------------------------------
-#pragma mark - Mutable container management
-///--------------------------------------
-
-- (void)checkpointAllMutableContainers {
-    @synchronized (lock) {
-        [_estimatedData enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
-            [self checkpointMutableContainer:obj];
-        }];
-    }
-}
-
-- (void)checkpointMutableContainer:(id)object {
-    @synchronized (lock) {
-        if (PFObjectValueIsKindOfMutableContainerClass(object)) {
-            [hashedObjectsCache setObject:[PFJSONCacheItem cacheFromObject:object]
-                                   forKey:[NSValue valueWithNonretainedObject:object]];
-        }
-    }
-}
-
-- (void)checkForChangesToMutableContainer:(id)object forKey:(NSString *)key {
-    @synchronized (lock) {
-        // If this is a mutable container, we should check its contents.
-        if (PFObjectValueIsKindOfMutableContainerClass(object)) {
-            PFJSONCacheItem *oldCacheItem = [hashedObjectsCache objectForKey:[NSValue valueWithNonretainedObject:object]];
-            if (!oldCacheItem) {
-                [NSException raise:NSInternalInconsistencyException
-                            format:@"PFObject contains container item that isn't cached."];
-            } else {
-                PFJSONCacheItem *newCacheItem = [PFJSONCacheItem cacheFromObject:object];
-                if (![oldCacheItem isEqual:newCacheItem]) {
-                    // A mutable container changed out from under us. Treat it as a set operation.
-                    [self setObject:object forKey:key];
-                }
-            }
-        } else {
-            [hashedObjectsCache removeObjectForKey:[NSValue valueWithNonretainedObject:object]];
-        }
-    }
-}
-
-- (void)checkForChangesToMutableContainers {
-    @synchronized (lock) {
-        NSMutableArray *unexaminedCacheKeys = [[hashedObjectsCache allKeys] mutableCopy];
-        NSDictionary *reachableData = _estimatedData.dictionaryRepresentation;
-        [reachableData enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
-            [unexaminedCacheKeys removeObject:[NSValue valueWithNonretainedObject:obj]];
-            [self checkForChangesToMutableContainer:obj forKey:key];
-        }];
-
-        // Remove unchecked cache entries.
-        [hashedObjectsCache removeObjectsForKeys:unexaminedCacheKeys];
     }
 }
 
@@ -942,7 +863,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 - (NSDictionary *)RESTDictionaryWithObjectEncoder:(PFEncoder *)objectEncoder
                                 operationSetUUIDs:(NSArray **)operationSetUUIDs {
     @synchronized (lock) {
-        [self checkForChangesToMutableContainers];
         PFObjectState *state = self._state;
         return [self RESTDictionaryWithObjectEncoder:objectEncoder
                                    operationSetUUIDs:operationSetUUIDs
@@ -1081,15 +1001,11 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             if ([key isEqualToString:PFObjectACLRESTKey]) {
                 PFACL *acl = [PFACL ACLWithDictionary:obj];
                 [state setServerDataObject:acl forKey:PFObjectACLRESTKey];
-                [self checkpointMutableContainer:acl];
                 return;
             }
 
             // Should be decoded
             id decodedObject = [decoder decodeObject:obj];
-            if (PFObjectValueIsKindOfMutableContainerClass(decodedObject)) {
-                [self checkpointMutableContainer:decodedObject];
-            }
             [state setServerDataObject:decodedObject forKey:key];
         }];
         if (state.updatedAt == nil && state.createdAt != nil) {
@@ -1108,7 +1024,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             }
         }
         [self rebuildEstimatedData];
-        [self checkpointAllMutableContainers];
     }
 }
 
@@ -1207,8 +1122,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 - (NSMutableDictionary *)_convertToDictionaryForSaving:(PFOperationSet *)changes
                                      withObjectEncoder:(PFEncoder *)encoder {
     @synchronized (lock) {
-        [self checkForChangesToMutableContainers];
-
         NSMutableDictionary *serialized = [NSMutableDictionary dictionary];
         [changes enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
             serialized[key] = obj;
@@ -1223,12 +1136,11 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
  */
 - (void)performOperation:(PFFieldOperation *)operation forKey:(NSString *)key {
     @synchronized (lock) {
-        id newValue = [_estimatedData applyFieldOperation:operation forKey:key];
+        [_estimatedData applyFieldOperation:operation forKey:key];
 
         PFFieldOperation *oldOperation = [[self unsavedChanges] objectForKey:key];
         PFFieldOperation *newOperation = [operation mergeWithPrevious:oldOperation];
         [[self unsavedChanges] setObject:newOperation forKey:key];
-        [self checkpointMutableContainer:newValue];
         [_availableKeys addObject:key];
     }
 }
@@ -1294,7 +1206,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
         state.updatedAt = other.updatedAt;
         state.serverData = [other._state.serverData mutableCopy];
         self._state = state;
-        [self checkpointAllMutableContainers];
 
         dirty = NO;
 
@@ -1305,13 +1216,11 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 
 - (void)_mergeAfterFetchWithResult:(NSDictionary *)result decoder:(PFDecoder *)decoder completeData:(BOOL)completeData {
     @synchronized (lock) {
-        [self checkForChangesToMutableContainers];
         [self _mergeFromServerWithResult:result decoder:decoder completeData:completeData];
         if (completeData) {
             [self removeOldKeysAfterFetch:result];
         }
         [self rebuildEstimatedData];
-        [self checkpointAllMutableContainers];
     }
 }
 
@@ -1340,16 +1249,12 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             PFOperationSet *operationsForNextSave = operationSetQueue[0];
             [operationsForNextSave mergeOperationSet:operationsBeforeSave];
         } else {
-            // Merge the data from the save and the data from the server into serverData.
-            [self checkForChangesToMutableContainers];
-
             PFMutableObjectState *state = [self._state mutableCopy];
             [state applyOperationSet:operationsBeforeSave];
             self._state = state;
 
             [self _mergeFromServerWithResult:result decoder:decoder completeData:NO];
             [self rebuildEstimatedData];
-            [self checkpointAllMutableContainers];
         }
     }
 }
@@ -1371,7 +1276,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             } else if ([key isEqualToString:PFObjectACLRESTKey]) {
                 PFACL *acl = [PFACL ACLWithDictionary:obj];
                 [state setServerDataObject:acl forKey:key];
-                [self checkpointMutableContainer:acl];
             } else {
                 [state setServerDataObject:[decoder decodeObject:obj] forKey:key];
             }
@@ -1665,7 +1569,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
     _estimatedData = [PFObjectEstimatedData estimatedDataFromServerData:_pfinternal_state.serverData
                                                       operationSetQueue:operationSetQueue];
     _availableKeys = [NSMutableSet set];
-    hashedObjectsCache = [[NSMutableDictionary alloc] init];
     self.taskQueue = [[PFTaskQueue alloc] init];
     _eventuallyTaskQueue = [[PFTaskQueue alloc] init];
 
@@ -2011,7 +1914,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
 
 - (BOOL)isDirtyForKey:(NSString *)key {
     @synchronized (lock) {
-        [self checkForChangesToMutableContainer:_estimatedData[key] forKey:key];
         return !![[self unsavedChanges] objectForKey:key];
     }
 }
@@ -2256,7 +2158,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             [_availableKeys intersectSet:persistentKeys];
 
             [self rebuildEstimatedData];
-            [self checkpointAllMutableContainers];
         }
     }
 }
@@ -2267,7 +2168,6 @@ static BOOL PFObjectValueIsKindOfMutableContainerClass(id object) {
             [[self unsavedChanges] removeObjectForKey:key];
             [self rebuildEstimatedData];
             [_availableKeys removeObject:key];
-            [self checkpointAllMutableContainers];
         }
     }
 }
