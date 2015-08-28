@@ -151,26 +151,26 @@ namespace :package do
 
   def make_package(target_path, items, archive_name)
     temp_folder = File.join(target_path, 'tmp')
-    `mkdir -p #{temp_folder}`
+    `mkdir -p "#{temp_folder}"`
 
     item_list = ''
     items.each do |item|
-      `cp -R #{item} #{temp_folder}`
+      `cp -R #{item} "#{temp_folder}"`
 
       file_name = File.basename(item)
       item_list << " #{file_name}"
     end
 
     archive_path = File.join(target_path, archive_name)
-    `cd #{temp_folder}; zip -r --symlinks #{archive_path} #{item_list}`
+    `cd "#{temp_folder}"; zip -r --symlinks "#{archive_path}" #{item_list}`
     `rm -rf #{temp_folder}`
     puts "Release archive created: #{File.join(target_path, archive_name)}"
   end
 
   def make_starter_package(target_path, starter_projects, framework_archive, archive_name)
     starter_projects.each do |project_path|
-      `git clean -xfd #{project_path}`
-      `cd #{project_path} && unzip -o #{framework_archive}`
+      `git clean -xfd "#{project_path}"`
+      `cd "#{project_path}" && unzip -o #{framework_archive}`
 
       xcodeproj_path = Dir.glob(File.join(project_path, '*.xcodeproj'))[0]
       prepare_xcodeproj(xcodeproj_path)
@@ -178,8 +178,8 @@ namespace :package do
     make_package(target_path, starter_projects, archive_name)
 
     starter_projects.each do |project_path|
-      `git clean -xfd #{project_path}`
-      `git checkout #{project_path}`
+      `git clean -xfd "#{project_path}"`
+      `git checkout "#{project_path}"`
     end
   end
 

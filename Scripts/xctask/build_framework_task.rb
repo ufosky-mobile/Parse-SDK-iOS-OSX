@@ -73,16 +73,16 @@ module XCTask
       framework_paths << build_framework('iphonesimulator')
       final_path = final_framework_path
 
-      system("rm -rf #{final_path} && cp -R #{framework_paths[0]} #{final_path}")
+      system("rm -rf \"#{final_path}\" && cp -R \"#{framework_paths[0]}\" \"#{final_path}\"")
 
       binary_name = File.basename(@framework_name, '.framework')
-      system("rm -rf #{final_path}/#{binary_name}")
+      system("rm -rf \"#{final_path}/#{binary_name}\"")
 
       lipo_command = 'lipo -create'
       framework_paths.each do |path|
-        lipo_command += " #{path}/#{binary_name}"
+        lipo_command += " \"#{path}/#{binary_name}\""
       end
-      lipo_command += " -o #{final_path}/#{binary_name}"
+      lipo_command += " -o \"#{final_path}/#{binary_name}\""
 
       result = system(lipo_command)
       unless result
@@ -95,7 +95,7 @@ module XCTask
     def build_osx_framework
       build_path = build_framework('macosx')
       final_path = final_framework_path
-      system("rm -rf #{final_path} && cp -R #{build_path} #{final_path}")
+      system("rm -rf \"#{final_path}\" && cp -R \"#{build_path}\" \"#{final_path}\"")
     end
 
     def build_framework(sdk)
