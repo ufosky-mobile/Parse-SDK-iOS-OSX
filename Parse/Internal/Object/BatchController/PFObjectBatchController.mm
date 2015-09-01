@@ -24,6 +24,8 @@
 #import "PFRESTObjectCommand.h"
 #import "PFRESTObjectBatchCommand.h"
 
+#import "PFSynchronizationHelpers.h"
+
 @implementation PFObjectBatchController
 
 ///--------------------------------------
@@ -192,7 +194,7 @@
     for (PFObject *object in objects) {
         @synchronized (object.lock) {
             if (omitFetched && [object isDataAvailable]) {
-                continue;
+                return;
             }
 
             //TODO: (nlutsenko) Convert to using errors instead of assertions.
@@ -202,7 +204,7 @@
                               @"All objects must exist on the server.");
 
             [set addObject:object];
-        }
+        };
     }
     return [set allObjects];
 }

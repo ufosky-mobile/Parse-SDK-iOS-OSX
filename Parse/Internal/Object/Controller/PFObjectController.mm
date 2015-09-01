@@ -21,6 +21,8 @@
 #import "PFRESTObjectCommand.h"
 #import "PFTaskQueue.h"
 
+#import "PFSynchronizationHelpers.h"
+
 @implementation PFObjectController
 
 ///--------------------------------------
@@ -80,7 +82,7 @@
         @synchronized (object.lock) {
             PFKnownParseObjectDecoder *decoder = [PFKnownParseObjectDecoder decoderWithFetchedObjects:fetchedObjects];
             [object _mergeAfterFetchWithResult:result decoder:decoder completeData:YES];
-        }
+        };
         return nil;
     }];
 }
