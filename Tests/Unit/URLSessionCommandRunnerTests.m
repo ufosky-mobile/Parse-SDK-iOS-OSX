@@ -9,8 +9,8 @@
 
 #import <OCMock/OCMock.h>
 
-#import <Bolts/BFCancellationTokenSource.h>
-#import <Bolts/BFTask.h>
+@import Bolts.BFCancellationTokenSource;
+@import Bolts.BFTask;
 
 #import "PFCommandResult.h"
 #import "PFCommandRunningConstants.h"
@@ -28,26 +28,29 @@
 
 - (void)testConstructors {
     id mockedDataSource = PFStrictProtocolMock(@protocol(PFInstallationIdentifierStoreProvider));
+    NSURL *url = [NSURL URLWithString:@"https://parse.com/123"];
 
     PFURLSessionCommandRunner *commandRunner = [[PFURLSessionCommandRunner alloc] initWithDataSource:mockedDataSource
                                                                                        applicationId:@"appId"
-                                                                                           clientKey:@"clientKey"];
+                                                                                           clientKey:@"clientKey"
+                                                                                           serverURL:url];
     XCTAssertNotNil(commandRunner);
     XCTAssertEqual(mockedDataSource, (id)commandRunner.dataSource);
     XCTAssertEqualObjects(@"appId", commandRunner.applicationId);
     XCTAssertEqualObjects(@"clientKey", commandRunner.clientKey);
     XCTAssertEqual(commandRunner.initialRetryDelay, PFCommandRunningDefaultRetryDelay);
+    XCTAssertEqual(commandRunner.serverURL, url);
 
     commandRunner = [PFURLSessionCommandRunner commandRunnerWithDataSource:mockedDataSource
                                                              applicationId:@"appId"
-                                                                 clientKey:@"clientKey"];
+                                                                 clientKey:@"clientKey"
+                                                                 serverURL:url];
     XCTAssertNotNil(commandRunner);
     XCTAssertEqual(mockedDataSource, (id)commandRunner.dataSource);
     XCTAssertEqualObjects(@"appId", commandRunner.applicationId);
     XCTAssertEqualObjects(@"clientKey", commandRunner.clientKey);
     XCTAssertEqual(commandRunner.initialRetryDelay, PFCommandRunningDefaultRetryDelay);
-
-    PFAssertThrowsInconsistencyException([PFURLSessionCommandRunner new]);
+    XCTAssertEqual(commandRunner.serverURL, url);
 }
 
 - (void)testRunCommand {
@@ -63,7 +66,7 @@
 
     OCMStub([mockedCommand resolveLocalIds]);
 
-    OCMStub([mockedRequestConstructor dataURLRequestForCommand:mockedCommand]).andReturn(urlRequest);
+    OCMStub([mockedRequestConstructor getDataURLRequestAsyncForCommand:mockedCommand]).andReturn([BFTask taskWithResult:urlRequest]);
     [OCMExpect([mockedSession performDataURLRequestAsync:urlRequest
                                               forCommand:mockedCommand
                                        cancellationToken:nil]) andReturn:[BFTask taskWithResult:mockedCommandResult]];
@@ -133,7 +136,7 @@
     __block int performDataURLRequestCount = 0;
 
     OCMStub([mockedCommand resolveLocalIds]);
-    OCMStub([mockedRequestConstructor dataURLRequestForCommand:mockedCommand]).andReturn(urlRequest);
+    OCMStub([mockedRequestConstructor getDataURLRequestAsyncForCommand:mockedCommand]).andReturn([BFTask taskWithResult:urlRequest]);
 
     [OCMStub([mockedSession performDataURLRequestAsync:urlRequest
                                             forCommand:mockedCommand
@@ -183,9 +186,9 @@
 
     OCMStub([mockedCommand resolveLocalIds]);
 
-    OCMExpect([mockedRequestConstructor fileUploadURLRequestForCommand:mockedCommand
-                                                       withContentType:@"content-type"
-                                                 contentSourceFilePath:@"content-path"]).andReturn(urlRequest);
+    OCMExpect([mockedRequestConstructor getFileUploadURLRequestAsyncForCommand:mockedCommand
+                                                               withContentType:@"content-type"
+                                                         contentSourceFilePath:@"content-path"]).andReturn([BFTask taskWithResult:urlRequest]);
 
     [OCMExpect([mockedSession performFileUploadURLRequestAsync:urlRequest
                                                     forCommand:mockedCommand
@@ -230,7 +233,7 @@
 
     OCMExpect([mockedCommand resolveLocalIds]);
 
-    OCMStub([mockedRequestConstructor dataURLRequestForCommand:mockedCommand]).andReturn(urlRequest);
+    OCMStub([mockedRequestConstructor getDataURLRequestAsyncForCommand:mockedCommand]).andReturn([BFTask taskWithResult:urlRequest]);
     [OCMStub([mockedSession performDataURLRequestAsync:urlRequest
                                             forCommand:mockedCommand
                                      cancellationToken:nil]) andReturn:[BFTask taskWithResult:mockedCommandResult]];

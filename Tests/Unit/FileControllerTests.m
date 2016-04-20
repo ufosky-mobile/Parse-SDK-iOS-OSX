@@ -9,22 +9,22 @@
 
 #import <OCMock/OCMock.h>
 
-#import <Bolts/BFCancellationTokenSource.h>
-#import <Bolts/BFTask.h>
-#import <Bolts/BFTaskCompletionSource.h>
+@import Bolts.BFCancellationTokenSource;
+@import Bolts.BFTask;
+@import Bolts.BFTaskCompletionSource;
 
 #import "PFCommandResult.h"
 #import "PFCommandRunning.h"
 #import "PFFileController.h"
 #import "PFFileManager.h"
 #import "PFMutableFileState.h"
-#import "PFUnitTestCase.h"
+#import "PFTestCase.h"
 
 @protocol FileControllerDataSource <PFCommandRunnerProvider, PFFileManagerProvider>
 
 @end
 
-@interface FileControllerTests : PFUnitTestCase
+@interface FileControllerTests : PFTestCase
 
 @end
 
@@ -440,8 +440,9 @@
                                 progressBlock:^(int percentDone) {
                                     XCTAssertTrue(progress <= percentDone);
                                     progress = percentDone;
-                                }] continueWithBlock:^id(BFTask *task) {
-                                    XCTAssertNil(task.error);
+                                }] continueWithBlock:^id(BFTask<PFFileState *> *task) {
+                                    XCTAssertNotNil(task.result);
+                                    XCTAssertEqualObjects(task.result.urlString, tempPath.absoluteString);
                                     [expectation fulfill];
                                     return nil;
                                 }];
@@ -496,7 +497,33 @@
     [self waitForTestExpectations];
 }
 
-- (void)testClearCaches {
+- (void)testClearFileCache {
+    id mockedDataSource = PFStrictProtocolMock(@protocol(PFFileManagerProvider));
+    id mockedFileManager = PFStrictClassMock([PFFileManager class]);
+
+    NSString *temporaryPath = [self temporaryDirectory];
+    NSString *downloadsPath = [temporaryPath stringByAppendingPathComponent:@"downloads"];
+
+    OCMStub([mockedDataSource fileManager]).andReturn(mockedFileManager);
+    OCMStub([mockedFileManager parseLocalSandboxDataDirectoryPath]).andReturn(temporaryPath);
+    OCMStub([mockedFileManager parseCacheItemPathForPathComponent:@"PFFileCache"]).andReturn(downloadsPath);
+
+    PFFileController *fileController = [PFFileController controllerWithDataSource:mockedDataSource];
+    PFFileState *fileState = [[PFMutableFileState alloc] initWithName:@"sampleData"
+                                                            urlString:temporaryPath
+                                                             mimeType:@"application/octet-stream"];
+
+    XCTestExpectation *expectation = [self currentSelectorTestExpectation];
+    [[fileController clearFileCacheAsyncForFileWithState:fileState] continueWithBlock:^id(BFTask *task) {
+        XCTAssertNil(task.error);
+        [expectation fulfill];
+        return nil;
+    }];
+
+    [self waitForTestExpectations];
+}
+
+- (void)testClearAllFilesCache {
     id mockedDataSource = PFStrictProtocolMock(@protocol(PFFileManagerProvider));
     id mockedFileManager = PFStrictClassMock([PFFileManager class]);
 
@@ -510,7 +537,7 @@
     PFFileController *fileController = [PFFileController controllerWithDataSource:mockedDataSource];
 
     XCTestExpectation *expectation = [self currentSelectorTestExpectation];
-    [[fileController clearFileCacheAsync] continueWithBlock:^id(BFTask *task) {
+    [[fileController clearAllFileCacheAsync] continueWithBlock:^id(BFTask *task) {
         XCTAssertNil(task.error);
         [expectation fulfill];
         return nil;

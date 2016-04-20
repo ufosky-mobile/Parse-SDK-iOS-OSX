@@ -11,23 +11,14 @@
 
 #import <objc/runtime.h>
 
+#import <Parse/PFObject.h>
+#import <Parse/PFSubclassing.h>
+
 #import "PFAssert.h"
 #import "PFMacros.h"
-#import "PFObject.h"
 #import "PFObjectSubclassInfo.h"
 #import "PFPropertyInfo_Private.h"
 #import "PFPropertyInfo_Runtime.h"
-#import "PFSubclassing.h"
-#import "PFUser.h"
-#import "PFSession.h"
-#import "PFPin.h"
-#import "PFRole.h"
-#import "PFEventuallyPin.h"
-#import "PFInstallation.h"
-
-#if TARGET_OS_IPHONE
-#import "PFProduct.h"
-#endif
 
 // CFNumber does not use number type 0, we take advantage of that here.
 #define kCFNumberTypeUnknown 0
@@ -185,8 +176,8 @@ static PFObjectSubclassingController *defaultController_;
     PFConsistencyAssert(invocation.methodSignature.numberOfArguments == 2, @"Getter should take no arguments!");
     PFConsistencyAssert(invocation.methodSignature.methodReturnType[0] != 'v', @"A getter cannot return void!");
 
-    const char *methodReturnType = [invocation.methodSignature methodReturnType];
-    void *returnValueBytes = alloca([invocation.methodSignature methodReturnLength]);
+    const char *methodReturnType = invocation.methodSignature.methodReturnType;
+    void *returnValueBytes = alloca(invocation.methodSignature.methodReturnLength);
 
     if (propertyInfo.ivar) {
         object_getIvarValue_safe(object, propertyInfo.ivar, returnValueBytes, propertyInfo.associationType);

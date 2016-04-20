@@ -9,12 +9,10 @@
 
 #import <OCMock/OCMock.h>
 
-#import <Bolts/BFTask.h>
+@import Bolts.BFTask;
 
 #import "PFCoreManager.h"
-#import "PFFile.h"
 #import "PFFileController.h"
-#import "PFFileManager.h"
 #import "PFFileStagingController.h"
 #import "PFFileState.h"
 #import "PFFile_Private.h"
@@ -142,29 +140,29 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
     PFFile *file = [PFFile fileWithData:[NSData data]];
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     file = [PFFile fileWithData:[NSData data] contentType:@"content-type"];
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     file = [PFFile fileWithName:@"name" data:[NSData data]];
     XCTAssertEqualObjects(file.name, @"name");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     file = [PFFile fileWithName:nil contentsAtPath:[self sampleFilePath]];
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     NSError *error = nil;
@@ -172,28 +170,37 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
     XCTAssertNil(error);
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     file = [PFFile fileWithName:nil data:[NSData data] contentType:@"content-type"];
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 
     [self clearStagingAndTemporaryFiles];
     file = [PFFile fileWithName:nil data:[NSData data] contentType:@"content-type" error:&error];
     XCTAssertNil(error);
     XCTAssertEqualObjects(file.name, @"file");
     XCTAssertNil(file.url);
-    XCTAssertTrue(file.isDirty);
-    XCTAssertTrue(file.isDataAvailable);
+    XCTAssertTrue(file.dirty);
+    XCTAssertTrue(file.dataAvailable);
 }
 
-- (void)testConstructorWithTooLargeData {
-    NSMutableData *data = [NSMutableData dataWithLength:(10 * 1048576 + 1)];
-    PFAssertThrowsInvalidArgumentException([PFFile fileWithData:data]);
+- (void)testConstructorWithNilData {
+    NSMutableData *data = nil;
+
+    NSError *error = nil;
+    PFFile *file = [PFFile fileWithName:@"testFile"
+                                   data:data
+                            contentType:nil
+                                  error:&error];
+
+    XCTAssertNil(file);
+    XCTAssertEqualObjects(NSCocoaErrorDomain, error.domain);
+    XCTAssertEqual(NSFileNoSuchFileError, error.code);
 }
 
 - (void)testUploading {
@@ -265,7 +272,11 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
     OCMStub([verifier verifyObject:@YES error:nil]).andDo(^(NSInvocation *invocation) {
         [expectation fulfill];
     });
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [file saveInBackgroundWithTarget:verifier selector:@selector(verifyObject:error:)];
+#pragma clang diagnostic pop
 
     [self waitForTestExpectations];
 }
@@ -396,7 +407,11 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
     OCMStub([verifier verifyObject:expectedData error:nil]).andDo(^(NSInvocation *invocation) {
         [expectation fulfill];
     });
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [file getDataInBackgroundWithTarget:verifier selector:@selector(verifyObject:error:)];
+#pragma clang diagnostic pop
 
     wait_next;
     expectation = [self expectationForSelector:@selector(getDataDownloadStreamInBackground)];
@@ -414,6 +429,42 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
             [expectation fulfill];
             return nil;
         }];
+
+    wait_next;
+    expectation = [self expectationForSelector:@selector(getFilePathInBackground)];
+    [[file getFilePathInBackground] continueWithBlock:^id(BFTask *task) {
+        NSData *data = [NSData dataWithContentsOfFile:task.result];
+        XCTAssertEqualObjects(data, expectedData);
+        [expectation fulfill];
+        return nil;
+    }];
+
+    wait_next;
+    expectation = [self expectationForSelector:@selector(getFilePathInBackgroundWithProgressBlock:)];
+    [[file getFilePathInBackgroundWithProgressBlock:[self progressValidationBlock]] continueWithBlock:^id(BFTask *task) {
+        NSData *data = [NSData dataWithContentsOfFile:task.result];
+        XCTAssertEqualObjects(data, expectedData);
+        [expectation fulfill];
+        return nil;
+    }];
+
+    wait_next;
+    expectation = [self expectationForSelector:@selector(getFilePathInBackgroundWithBlock:)];
+    [file getFilePathInBackgroundWithBlock:^(NSString *filePath, NSError *error) {
+        XCTAssertNil(error);
+        NSData *data = [NSData dataWithContentsOfFile:filePath];
+        XCTAssertEqualObjects(data, expectedData);
+        [expectation fulfill];
+    }];
+
+    wait_next;
+    expectation = [self expectationForSelector:@selector(getFilePathInBackgroundWithBlock:progressBlock:)];
+    [file getFilePathInBackgroundWithBlock:^(NSString *filePath, NSError *error) {
+        XCTAssertNil(error);
+        NSData *data = [NSData dataWithContentsOfFile:filePath];
+        XCTAssertEqualObjects(data, expectedData);
+        [expectation fulfill];
+    } progressBlock:[self progressValidationBlock]];
 
     wait_next;
 }
@@ -455,6 +506,42 @@ static NSData *dataFromInputStream(NSInputStream *inputStream) {
 
     [file cancel];
     [self waitForTestExpectations];
+}
+
+- (void)testClearCachedData {
+    id mockedFileController = [Parse _currentManager].coreManager.fileController;
+
+    PFFile *file = [PFFile fileWithName:@"a" data:[NSData data]];
+    OCMExpect([mockedFileController clearFileCacheAsyncForFileWithState:file.state]).andReturn([BFTask taskWithResult:nil]);
+
+    XCTestExpectation *expectation = [self currentSelectorTestExpectation];
+    [[file clearCachedDataInBackground] continueWithBlock:^id _Nullable(BFTask * _Nonnull task) {
+        XCTAssertNil(task.result);
+        XCTAssertFalse(task.faulted);
+        XCTAssertFalse(task.cancelled);
+        [expectation fulfill];
+        return nil;
+    }];
+    [self waitForTestExpectations];
+
+    OCMVerifyAll(mockedFileController);
+}
+
+- (void)testClearAllCachedData {
+    id mockedFileController = [Parse _currentManager].coreManager.fileController;
+    OCMExpect([mockedFileController clearAllFileCacheAsync]).andReturn([BFTask taskWithResult:nil]);
+
+    XCTestExpectation *expectation = [self currentSelectorTestExpectation];
+    [[PFFile clearAllCachedDataInBackground] continueWithBlock:^id _Nullable(BFTask * _Nonnull task) {
+        XCTAssertNil(task.result);
+        XCTAssertFalse(task.faulted);
+        XCTAssertFalse(task.cancelled);
+        [expectation fulfill];
+        return nil;
+    }];
+    [self waitForTestExpectations];
+
+    OCMVerifyAll(mockedFileController);
 }
 
 @end

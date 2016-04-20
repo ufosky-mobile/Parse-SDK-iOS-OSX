@@ -11,6 +11,7 @@
 #import "PFUnitTestCase.h"
 #import "Parse_Private.h"
 #import "PFObjectPrivate.h"
+#import "BFTask+Private.h"
 
 @interface ObjectUnitTests : PFUnitTestCase
 
@@ -183,6 +184,27 @@
     XCTAssertEqualObjects([object valueForKey:@"yarr"], @"yolo");
 }
 
+- (void)testKeyValueCodingFromDictionary {
+    NSString *string = @"foo";
+    NSNumber *number = @0.75;
+    NSDate *date = [NSDate date];
+    NSData *data = [@"foo" dataUsingEncoding:NSUTF8StringEncoding];
+    NSNull *null = [NSNull null];
+    NSDictionary *dictionary = @{ @"string" : string,
+                                  @"number" : number,
+                                  @"date" : date,
+                                  @"data" : data,
+                                  @"null" : null };
+
+    PFObject *object = [PFObject objectWithClassName:@"Test"];
+    [object setValuesForKeysWithDictionary:dictionary];
+    XCTAssertEqualObjects(string, object[@"string"]);
+    XCTAssertEqualObjects(number, object[@"number"]);
+    XCTAssertEqualObjects(date, object[@"date"]);
+    XCTAssertEqualObjects(null, object[@"null"]);
+    XCTAssertEqualObjects(data, object[@"data"]);
+}
+
 #pragma mark Fetch
 
 - (void)testFetchObjectWithoutObjectIdError {
@@ -199,14 +221,39 @@
     [self waitForTestExpectations];
 }
 
+#pragma mark DeleteAll
+
+- (void)testDeleteAllWithoutObjects {
+    XCTAssertTrue([PFObject deleteAll:nil]);
+    XCTAssertTrue([PFObject deleteAll:@[]]);
+
+    NSError *error = nil;
+    XCTAssertTrue([PFObject deleteAll:nil error:&error]);
+    XCTAssertNil(error);
+    XCTAssertTrue([PFObject deleteAll:@[] error:&error]);
+    XCTAssertNil(error);
+
+    XCTAssertTrue([[[PFObject deleteAllInBackground:nil] waitForResult:nil] boolValue]);
+    XCTAssertTrue([[[PFObject deleteAllInBackground:@[]] waitForResult:nil] boolValue]);
+
+    XCTestExpectation *expectation = [self currentSelectorTestExpectation];
+    [PFObject deleteAllInBackground:nil block:^(BOOL succeeded, NSError * _Nullable error) {
+        XCTAssertTrue(succeeded);
+        XCTAssertNil(error);
+        [expectation fulfill];
+    }];
+    [self waitForTestExpectations];
+}
+
 #pragma mark Revert
 
 - (void)testRevert {
     NSDate *date = [NSDate date];
     NSNumber *number = @0.75;
     PFObject *object = [PFObject _objectFromDictionary:@{ @"yarr" : date,
-                                                          @"score": number }
-                                      defaultClassName:@"Test" completeData:YES];
+                                                          @"score" : number }
+                                      defaultClassName:@"Test"
+                                          completeData:YES];
     object[@"yarr"] = @"yolo";
     [object revert];
     XCTAssertEqualObjects(object[@"yarr"], date);
@@ -218,12 +265,31 @@
     NSNumber *number = @0.75;
     PFObject *object = [PFObject _objectFromDictionary:@{ @"yarr" : date,
                                                           @"score" : @1.0 }
-                                      defaultClassName:@"Test" completeData:YES];
+                                      defaultClassName:@"Test"
+                                          completeData:YES];
     object[@"yarr"] = @"yolo";
     object[@"score"] = number;
     [object revertObjectForKey:@"yarr"];
     XCTAssertEqualObjects(object[@"yarr"], date);
     XCTAssertEqualObjects(object[@"score"], number);
+}
+
+#pragma mark Dirty
+
+- (void)testRecursiveDirty {
+    // A -> B -> A is a supported use-case, but it would crash on older SDK versions.
+    PFObject *objectA = [PFObject objectWithClassName:@"A"];
+    PFObject *objectB = [PFObject objectWithClassName:@"B"];
+
+    [objectA _mergeAfterSaveWithResult:@{ @"objectId" : @"foo",
+                                          @"B" : objectB }
+                               decoder:[PFDecoder objectDecoder]];
+
+    [objectB _mergeAfterSaveWithResult:@{ @"objectId" : @"bar",
+                                          @"A" : objectA }
+                               decoder:[PFDecoder objectDecoder]];
+
+    XCTAssertFalse(objectA.dirty);
 }
 
 @end

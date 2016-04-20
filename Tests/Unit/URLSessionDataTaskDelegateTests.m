@@ -9,8 +9,8 @@
 
 #import <OCMock/OCMock.h>
 
-#import <Bolts/BFCancellationTokenSource.h>
-#import <Bolts/BFTask.h>
+@import Bolts.BFCancellationTokenSource;
+@import Bolts.BFTask;
 
 #import "PFCommandResult.h"
 #import "PFConstants.h"
@@ -37,8 +37,6 @@
     XCTAssertNotNil(delegate);
     XCTAssertEqual(mockedTask, delegate.dataTask);
     XCTAssertNotNil(delegate.resultTask);
-
-    PFAssertThrowsInconsistencyException([PFURLSessionJSONDataTaskDelegate new]);
 }
 
 - (void)testCancel {

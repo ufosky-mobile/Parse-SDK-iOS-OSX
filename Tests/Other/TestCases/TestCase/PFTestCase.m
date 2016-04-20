@@ -9,7 +9,7 @@
 
 #import "PFTestCase.h"
 
-#import <Bolts/BFTask.h>
+@import Bolts.BFTask;
 
 #import "PFTestSwizzlingUtilities.h"
 
@@ -165,7 +165,7 @@
         // Check for unexpected files.
         NSDirectoryEnumerator *enumerator = [[NSFileManager defaultManager] enumeratorAtPath:directoryPath];
         NSString *filename = nil;
-        while (filename = [enumerator nextObject]) {
+        while ((filename = [enumerator nextObject])) {
             XCTAssertNotNil(expected[filename], @"Unexpected file %@", filename);
         }
     }

@@ -9,8 +9,8 @@
 
 #import <OCMock/OCMock.h>
 
-#import <Bolts/BFCancellationTokenSource.h>
-#import <Bolts/BFTask.h>
+@import Bolts.BFCancellationTokenSource;
+@import Bolts.BFTask;
 
 #import "PFCommandResult.h"
 #import "PFMacros.h"
@@ -86,8 +86,6 @@
                                          delegate:delegate];
     XCTAssertNotNil(session);
     XCTAssertEqual((id)session.delegate, delegate);
-    
-    PFAssertThrowsInconsistencyException([PFURLSession new]);
 }
 
 - (void)testPerformDataRequestSuccess {

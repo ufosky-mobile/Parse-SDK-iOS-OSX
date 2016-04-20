@@ -28,11 +28,9 @@ static NSString *const _PFFileStateSecureDomain = @"files.parsetfss.com";
 ///--------------------------------------
 
 + (NSDictionary *)propertyAttributes {
-    return @{
-        @"name" : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy],
-        @"urlString" : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy],
-        @"mimeType" : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy],
-    };
+    return @{ PFFileStatePropertyName(name) : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy],
+              PFFileStatePropertyName(urlString) : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy],
+              PFFileStatePropertyName(mimeType) : [PFPropertyAttributes attributesWithAssociationType:PFPropertyInfoAssociationTypeCopy] };
 }
 
 ///--------------------------------------
@@ -79,15 +77,15 @@ static NSString *const _PFFileStateSecureDomain = @"files.parsetfss.com";
         return self.urlString;
     }
 
-    NSString *scheme = [components scheme];
+    NSString *scheme = components.scheme;
     if (![scheme isEqualToString:@"http"]) {
         return self.urlString;
     }
 
-    if ([[components host] isEqualToString:_PFFileStateSecureDomain]) {
+    if ([components.host isEqualToString:_PFFileStateSecureDomain]) {
         components.scheme = @"https";
     }
-    _secureURLString = [[components URL] absoluteString];
+    _secureURLString = components.URL.absoluteString;
     return _secureURLString;
 }
 
